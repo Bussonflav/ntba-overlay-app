@@ -1,0 +1,11 @@
+{
+  "apps": {
+    "7c818bda": {
+      "name": "NTBA Overlay",
+      "root": ".",
+      "integrations": {
+        "capacitor": {}
+      }
+    }
+  }
+}
