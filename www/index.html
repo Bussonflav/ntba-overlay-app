@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <title>NTBA Overlay Mobile</title>
+
+  <!-- DOM -> Canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Police -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --ink:#fff;
+      --muted:#c9d3ef;
+      --shadow:0 12px 30px rgba(0,0,0,.45);
+      --grad-a:#214aee;
+      --grad-b:#0b2fb1;
+      --accent:#f7c331;
+      --glass-a:rgba(33,74,238,.18);
+      --glass-b:rgba(11,47,177,.16);
+      --bg-deep:#0b1220;
+      --font:"Montserrat",system-ui;
+      --ribbon-bg:linear-gradient(90deg, rgba(12,28,60,.85), rgba(12,28,60,.55));
+      --ribbon-text:#fff;
+      --set-bg:rgba(0,0,0,.55);
+      --set-border:1px solid rgba(255,255,255,.28);
+      --safe: env(safe-area-inset-bottom, 0px);
+    }
+
+    *{box-sizing:border-box;}
+
+    body{
+      margin:0;
+      color:var(--ink);
+      background:
+        radial-gradient(1000px 1000px at 50% -200px, #162a56 0%, var(--bg-deep) 60%, #000 100%);
+      font-family:var(--font);
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    /* ===== Shell général / mobile-first ===== */
+    .container{
+      width:100%;
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px 16px calc(104px + var(--safe)); /* marge pour barre fixe */
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    h1{
+      margin:4px 0 6px;
+      font:800 22px/1.1 var(--font);
+      letter-spacing:.02em;
+    }
+
+    .subtitle{
+      font:600 13px/1.4 var(--font);
+      color:var(--muted);
+      opacity:.9;
+    }
+
+    /* Layout principal : contrôles + aperçu */
+    .layout-main{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      margin-top:10px;
+    }
+
+    /* ---------- Carte de contrôles ---------- */
+    .controls-card{
+      display:grid;
+      gap:14px;
+      padding:14px 14px 16px;
+      background:linear-gradient(180deg, rgba(12,28,60,.7), rgba(12,28,60,.25));
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .row{
+      display:grid;
+      gap:8px;
+    }
+
+    .row.cols-2{
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .label{
+      font:700 13px/1.2 var(--font);
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    /* Thèmes centrés */
+    .themes{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .chip{
+      padding:11px 16px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.07);
+      font:700 14px/1 var(--font);
+      cursor:pointer;
+      user-select:none;
+      transition:
+        background .18s ease,
+        border-color .18s ease,
+        transform .12s ease,
+        box-shadow .18s ease;
+      min-width:120px;
+      text-align:center;
+    }
+
+    .chip:active{
+      transform:scale(.97);
+    }
+
+    .chip.active{
+      outline:2px solid rgba(255,255,255,.45);
+      background:rgba(33,74,238,.3);
+      box-shadow:0 0 0 1px rgba(11,47,177,.35);
+    }
+
+    .field,
+    .btn{
+      width:100%;
+      min-height:48px; /* confort tactile */
+      border-radius:12px;
+      border:1px solid #26304a;
+      background:#0f1627;
+      color:#fff;
+      padding:11px 12px;
+      font:600 14px var(--font);
+    }
+
+    .field{
+      appearance:none;
+    }
+
+    .field:focus,
+    .btn:focus{
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px rgba(247,195,49,.65);
+    }
+
+    .btn{
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      transition:transform .12s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+      border-color:transparent;
+      box-shadow:0 8px 20px rgba(11,47,177,.6);
+    }
+
+    .btn.primary:active{
+      transform:translateY(1px) scale(.99);
+      box-shadow:0 4px 10px rgba(0,0,0,.6);
+    }
+
+    .btn:not(.primary):active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    /* Actions 50/50 */
+    .actions-apply{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    /* ---------- Aperçu overlay (9:16) ---------- */
+    #overlay{
+      --u:1; /* redéfini en JS selon OUT_W/H */
+      position:relative;
+      width:100%;
+      max-width:520px;
+      aspect-ratio:9/16;
+      margin:4px auto 0;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      box-shadow:0 30px 70px rgba(0,0,0,.65);
+      background:#000;
+      font-size:calc(14px * var(--u));
+      touch-action:none;
+      user-select:none;
+    }
+
+    /* fond (no-crop de base ; zoom>1 possible) */
+    #bg-layer{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      overflow:hidden;
+      background:#000;
+    }
+
+    #bg-movable{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%) translate(0px,0px) scale(1);
+      transform-origin:50% 50%;
+      will-change: transform;
+    }
+
+    #bg-movable img,
+    #bg-movable video{
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      background:#000;
+      -webkit-user-drag:none;
+      pointer-events:none;
+    }
+
+    /* bandeau (PREVIEW = export) */
+    .ribbon{
+      position:absolute;
+      left:calc(10px * var(--u));
+      right:calc(10px * var(--u));
+      top:calc(12px * var(--u));
+      z-index:5;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:calc(10px * var(--u)) calc(12px * var(--u));
+      border-radius:calc(12px * var(--u));
+      background:transparent !important;
+      color:var(--ribbon-text);
+      border:none !important;
+      backdrop-filter:none !important;
+      box-shadow:none !important;
+      font-family:var(--font);
+    }
+
+    .r-left{
+      display:flex;
+      align-items:center;
+      gap:calc(10px * var(--u));
+    }
+
+    .logo{
+      height:calc(48px * var(--u));
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.45));
+    }
+
+    .logo-right{
+      height:calc(48px * var(--u));
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.45));
+    }
+
+    .event,
+    .stage-text{
+      display:none;  /* ← masqués en preview comme à l'export */
+    }
+
+    /* ==================== SCORE 2025 / ESPORT ==================== */
+
+    /* Container score global */
+    .score{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:3;
+      padding:calc(10px * var(--u));
+      pointer-events:none; /* la zone est purement visuelle */
+    }
+
+    /* Box principale = plaque de scoreboard */
+    .box{
+      position:relative;
+      background:
+        linear-gradient(135deg, rgba(2,12,36,.95), rgba(5,20,60,.98)),
+        radial-gradient(circle at 0 0, rgba(33,74,238,.45), transparent 55%);
+      border-radius:calc(20px * var(--u));
+      padding:calc(14px * var(--u)) calc(16px * var(--u));
+      box-shadow:
+        0 18px 40px rgba(0,0,0,.9),
+        0 0 24px rgba(33,74,238,.45);
+      border:1px solid rgba(110,150,255,.45);
+      overflow:hidden;
+      pointer-events:auto;
+    }
+
+    /* Liseré lumineux en haut */
+    .box::before{
+      content:"";
+      position:absolute;
+      left:-10%;
+      right:-10%;
+      top:0;
+      height:calc(3px * var(--u));
+      background:linear-gradient(90deg,#f7c331,#ffffff,#214aee);
+      opacity:.95;
+      box-shadow:0 0 18px rgba(247,195,49,.7);
+    }
+
+    /* Trait diagonale légère */
+    .box::after{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background:
+        radial-gradient(circle at 120% -20%, rgba(247,195,49,.22), transparent 70%),
+        radial-gradient(circle at -10% 140%, rgba(33,74,238,.18), transparent 70%);
+      mix-blend-mode:screen;
+      opacity:.7;
+      pointer-events:none;
+    }
+
+    /* Ligne score (joueur A / joueur B) */
+    .row-score{
+      position:relative;
+      display:flex;
+      align-items:stretch;
+      justify-content:space-between;
+      gap:calc(10px * var(--u));
+      padding:calc(9px * var(--u)) 0;
+    }
+
+    .row-score + .row-score{
+      border-top:1px solid rgba(255,255,255,.08);
+      margin-top:calc(4px * var(--u));
+      padding-top:calc(10px * var(--u));
+    }
+
+    /* Accent latéral pour chaque joueur */
+    .row-score::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:calc(4px * var(--u));
+      bottom:calc(4px * var(--u));
+      width:calc(3px * var(--u));
+      border-radius:999px;
+      background:linear-gradient(180deg,rgba(255,255,255,.3),transparent);
+      opacity:.65;
+    }
+
+    .row-score:first-child::before{
+      background:linear-gradient(180deg,#f7c331,#ff9f1c);
+      box-shadow:0 0 14px rgba(247,195,49,.7);
+    }
+
+    .row-score:last-child::before{
+      background:linear-gradient(180deg,#6dd6ff,#214aee);
+      box-shadow:0 0 14px rgba(72,149,239,.7);
+    }
+
+    /* Bloc identifiant du joueur */
+    .name-block{
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      min-width:0;
+    }
+
+    /* Nom joueur = gros impact */
+    .name{
+      font-weight:800;
+      font-size:calc(19px * var(--u));
+      line-height:1.05;
+      text-transform:uppercase;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      letter-spacing:.06em;
+      text-shadow:
+        0 0 12px rgba(0,0,0,.8),
+        0 0 18px rgba(0,0,0,.8);
+    }
+
+    /* Légère différence Visuelle A/B */
+    .row-score:first-child .name{
+      color:#ffffff;
+    }
+    .row-score:last-child .name{
+      color:#d7e2ff;
+    }
+
+    /* Zone sets (cartouches à droite) */
+    .sets{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:calc(6px * var(--u));
+      flex-wrap:nowrap;
+    }
+
+    /* Cartouche set – base perdant */
+    .set{
+      position:relative;
+      min-width:calc(40px * var(--u));
+      padding:calc(7px * var(--u)) calc(12px * var(--u));
+      text-align:center;
+      font:900 calc(17px * var(--u))/1 var(--font);
+      text-transform:uppercase;
+      background:radial-gradient(circle at 0 0, rgba(255,255,255,.12), rgba(8,19,51,1));
+      border-radius:calc(9px * var(--u));
+      border:1px solid rgba(140,160,210,.7);
+      box-shadow:
+        0 4px 10px rgba(0,0,0,.9),
+        0 0 10px rgba(0,0,0,.75);
+      color:#dbe5ff;
+      letter-spacing:.03em;
+      overflow:hidden;
+    }
+
+    /* Ligne néon intérieure */
+    .set::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(
+        135deg,
+        rgba(255,255,255,.16) 0%,
+        transparent 35%,
+        rgba(33,74,238,.24) 100%
+      );
+      mix-blend-mode:screen;
+      opacity:.45;
+      pointer-events:none;
+    }
+
+    /* Set gagnant : glow agressif + couleurs NTBA */
+    .set.w{
+      background:
+        linear-gradient(145deg,#f7c331,#ffb347,#ffefc0);
+      color:#111;
+      border:1px solid rgba(255,255,255,.9);
+      box-shadow:
+        0 0 12px rgba(247,195,49,.95),
+        0 0 30px rgba(247,195,49,.9);
+      transform:translateY(-1px);
+    }
+
+    .set.w::before{
+      background:radial-gradient(circle at 0 0, rgba(255,255,255,.7), transparent 55%);
+      opacity:.9;
+    }
+
+    /* Micro-animations discrètes pour les exports vidéo/live */
+    .set,
+    .set.w{
+      transition:
+        transform .18s ease-out,
+        box-shadow .18s ease-out,
+        background .18s ease-out,
+        color .18s ease-out,
+        border-color .18s ease-out;
+    }
+
+    .row-score:first-child .set.w{
+      /* léger tilt pour le vainqueur du haut */
+      transform:translateY(-1px) translateX(0) skewX(-4deg);
+    }
+
+    .row-score:last-child .set.w{
+      transform:translateY(-1px) translateX(0) skewX(4deg);
+    }
+
+    /* ---------- barre fixe bas : 2 boutons 50/50 ----------- */
+    .bottom-bar{
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:50;
+      padding:8px 12px calc(8px + var(--safe));
+      background:rgba(10,14,26,.94);
+      backdrop-filter: blur(10px);
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+
+    .bottom-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      max-width:1100px;
+      margin:0 auto;
+    }
+
+    .bottom-btn{
+      min-height:54px;
+      border-radius:14px;
+      border:1px solid #26304a;
+      color:#fff;
+      font:800 16px var(--font);
+      cursor:pointer;
+      background:#2a3453;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:transform .12s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    }
+
+    .bottom-btn.primary{
+      background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+      border-color:transparent;
+      box-shadow:0 10px 24px rgba(11,47,177,.7);
+    }
+
+    .bottom-btn:active{
+      transform:translateY(1px) scale(.99);
+      box-shadow:0 4px 12px rgba(0,0,0,.65);
+    }
+
+    /* ====== RESPONSIVE : tablettes & laptops ====== */
+
+    /* >= 700px : on aère un peu les champs */
+    @media (min-width:700px){
+      .controls-card{
+        padding:16px 18px 18px;
+        border-radius:18px;
+      }
+      .field,
+      .btn{
+        font-size:15px;
+        min-height:50px;
+      }
+      .bottom-btn{
+        font-size:17px;
+      }
+    }
+
+    /* >= 900px : layout côte à côte (contrôles + overlay) */
+    @media (min-width:900px){
+      .layout-main{
+        flex-direction:row;
+        align-items:flex-start;
+        gap:20px;
+      }
+
+      .controls-card{
+        flex:1.1;
+      }
+
+      #overlay{
+        flex:0 0 360px;
+        max-width:420px;
+        align-self:stretch;
+      }
+
+      .container{
+        padding:24px 24px calc(112px + var(--safe));
+      }
+    }
+
+    /* >= 1200px : overlay plus large, feeling "desk" */
+    @media (min-width:1200px){
+      #overlay{
+        flex:0 0 400px;
+        max-width:480px;
+      }
+    }
+
+    /* Paysage sur petit écran : on réduit un peu la carte pour garder l’overlay visible */
+    @media (max-width:899px) and (orientation:landscape){
+      .container{
+        padding-top:10px;
+        padding-bottom:calc(90px + var(--safe));
+      }
+      .controls-card{
+        padding:10px 12px;
+        gap:10px;
+      }
+      h1{
+        font-size:20px;
+      }
+      .subtitle{
+        font-size:12px;
+      }
+    }
+  </style>
+
+</head>
+<body class="theme-ntba">
+  <div class="container">
+    <div>
+      <h1>Overlay téléphone (portrait)</h1>
+      <div class="subtitle">
+        Configure ton fond, choisis un match terminé et exporte un visuel ou une vidéo optimisée pour les réseaux.
+      </div>
+    </div>
+
+    <div class="layout-main">
+      <!-- Carte de contrôles -->
+      <div class="controls-card">
+        <div class="row">
+          <div class="label">Thème</div>
+          <div class="themes">
+            <button class="chip active" data-theme="theme-ntba">NTBA</button>
+            <button class="chip" data-theme="theme-parantba">Para NTBA</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="label">Fond (image ou vidéo)</div>
+          <input type="file" id="bgFile" class="field" accept="image/*,video/*">
+        </div>
+
+        <!-- Source + Court côte à côte -->
+        <div class="row cols-2">
+          <div>
+            <div class="label">Historique</div>
+            <select id="source" class="field">
+              <option value="admin" selected>Admin</option>
+              <option value="joueur">Joueur</option>
+            </select>
+          </div>
+          <div>
+            <div class="label">Court</div>
+            <select id="court" class="field">
+              <option value="courtA">Court A</option>
+              <option value="courtB">Court B</option>
+              <option value="courtC">Court C</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Sélection du match pleine largeur -->
+        <div class="row">
+          <div class="label">Sélectionne un match terminé</div>
+          <select id="matchSelect" class="field">
+            <option value="">Sélectionne un match…</option>
+          </select>
+        </div>
+
+        <div class="actions-apply">
+          <button id="reload" class="btn">🔄 Recharger</button>
+          <button id="apply" class="btn primary">✅ Appliquer</button>
+        </div>
+      </div>
+
+      <!-- Aperçu -->
+      <div id="overlay">
+        <div class="ribbon">
+          <div class="r-left">
+            <img id="logo" class="logo" src="/static/logo ntba.png" alt="Logo">
+            <div class="event" id="event">TOURNOI NTBA</div>
+          </div>
+          <div class="stage-text" id="stageText">MATCH TERMINÉ</div>
+        </div>
+
+        <div id="bg-layer">
+          <div id="bg-movable"></div>
+        </div>
+
+        <div class="score">
+          <div class="box">
+            <div class="row-score">
+              <div class="name-block">
+                <div class="name" id="nameA">Joueur A</div>
+              </div>
+              <div class="sets" id="setsA"></div>
+            </div>
+            <div class="row-score">
+              <div class="name-block">
+                <div class="name" id="nameB">Joueur B</div>
+              </div>
+              <div class="sets" id="setsB"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div> <!-- /layout-main -->
+  </div>
+
+  <!-- Barre fixe de téléchargements -->
+  <div class="bottom-bar">
+    <div class="bottom-grid">
+      <button id="btnImage" class="bottom-btn">🖼️ Télécharger l’image</button>
+      <button id="btnVideo" class="bottom-btn primary">🎬 Télécharger la vidéo</button>
+    </div>
+  </div>
+
+<script>
+/* ====== CONFIG & STATE ====== */
+const MAX_DIM = 4096;
+let OUT_W = 1080, OUT_H = 1920;
+
+function downloadToFile(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+const overlay = document.getElementById('overlay');
+const bgMov   = document.getElementById('bg-movable');
+const bgInput = document.getElementById('bgFile');
+const courtEl = document.getElementById('court');
+const sourceEl= document.getElementById('source');
+const selMatch= document.getElementById('matchSelect');
+const btnReload=document.getElementById('reload');
+const btnApply =document.getElementById('apply');
+const btnImage =document.getElementById('btnImage');
+const btnVideo =document.getElementById('btnVideo');
+
+const logo  = document.getElementById('logo');
+const eventEl = document.getElementById('event');
+
+/* ====== Injecte le logo Comité en PREVIEW ====== */
+(function ensureRightLogo(){
+  const rib = document.querySelector('.ribbon');
+  if (rib && !document.querySelector('.logo-right')) {
+    const img = document.createElement('img');
+    img.src = '/static/fft_comite_eureetloir.png';
+    img.alt = 'Comité Eure-et-Loir';
+    img.className = 'logo-right';
+    rib.appendChild(img); // avec space-between → à droite
+  }
+})();
+
+const THEME = {
+  'theme-ntba':     { logo:'/static/logo ntba.png',      event:'TOURNOI NTBA' },
+  'theme-parantba': { logo:'/static/para TBA_logo.png',  event:'TOURNOI PARA NTBA' },
+};
+document.querySelectorAll('.chip').forEach(ch=>{
+  ch.addEventListener('click', ()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    ch.classList.add('active');
+    const t = THEME[ch.dataset.theme] || THEME['theme-ntba'];
+    document.body.className = ch.dataset.theme;
+    logo.src = t.logo; eventEl.textContent = t.event;
+  });
+});
+
+/* ====== ZOOM / PAN — version douce & persistante ====== */
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 8;
+const WHEEL_STEP = 1.02;   // <- molette très fine
+const PINCH_POWER = 0.30;  // <- pinch adouci
+
+let media=null, mw=1080, mh=1920;
+let scale=1, panX=0, panY=0;
+let dragging=false, sx=0, sy=0, px0=0, py0=0;
+let pinch=null; // { d0, cx, cy, startScale }
+
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const even = n => { n=Math.round(n); return n%2?n+1:n; };
+
+function setOutDims(w,h){
+  const sc = Math.min(1, MAX_DIM/Math.max(w,h));
+  OUT_W = even(w*sc); OUT_H = even(h*sc);
+  const u = Math.max(0.8, Math.min(2.2, Math.min(OUT_W/1080, OUT_H/1920)));
+  overlay.style.setProperty('--u', u.toFixed(3));
+}
+
+bgInput.addEventListener('change', async(e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  bgMov.innerHTML=''; media=null;
+  if (f.type.startsWith('video')){
+    const v=document.createElement('video'); v.src=URL.createObjectURL(f);
+    v.autoplay=true; v.loop=true; v.muted=true; v.playsInline=true;
+    v.addEventListener('loadedmetadata', ()=>{
+      mw=v.videoWidth||1080; mh=v.videoHeight||1920; setOutDims(mw, mh); resetTransform();
+    }, {once:true});
+    bgMov.appendChild(v); media=v;
+  } else {
+    const img=document.createElement('img');
+    img.onload=()=>{ mw=img.naturalWidth||1080; mh=img.naturalHeight||1920; setOutDims(1080,1920); resetTransform(); };
+    img.src=URL.createObjectURL(f); bgMov.appendChild(img); media=img;
+  }
+});
+function resetTransform(){ scale=1; panX=panY=0; applyTransform(); }
+
+function applyTransform(){
+  const rect = overlay.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+
+  const base = Math.min(W/mw, H/mh); // contain
+  const s = base * scale;
+
+  const dw = mw*s, dh = mh*s;
+  const maxX = Math.max(0, (dw - W)/2);
+  const maxY = Math.max(0, (dh - H)/2);
+  panX = Math.max(-maxX, Math.min(panX, maxX));
+  panY = Math.max(-maxY, Math.min(panY, maxY));
+
+  bgMov.style.transform = `translate(-50%,-50%) translate(${panX}px,${panY}px) scale(${scale})`;
+  if(media){
+    media.style.width  = `${Math.max(W, W)}px`;
+    media.style.height = `${Math.max(H, H)}px`;
+    media.style.objectFit = 'contain';
+  }
+}
+
+/* zoom au point pour garder la zone visée */
+function zoomAtPoint(cx, cy, nextScale){
+  nextScale = clamp(nextScale, ZOOM_MIN, ZOOM_MAX);
+  const prev = scale;
+  if (nextScale === prev) return;
+
+  const rect = overlay.getBoundingClientRect();
+  const cxLocal = (cx - rect.left) - rect.width/2;
+  const cyLocal = (cy - rect.top)  - rect.height/2;
+  const k = nextScale / prev;
+
+  panX = panX - cxLocal * (k - 1);
+  panY = panY - cyLocal * (k - 1);
+  scale = nextScale;
+
+  applyTransform();
+}
+
+/* bloque gestes natifs iOS qui “reset” */
+document.addEventListener('gesturestart',  e=>{ e.preventDefault(); }, {passive:false});
+document.addEventListener('gesturechange', e=>{ e.preventDefault(); }, {passive:false});
+document.addEventListener('gestureend',    e=>{ e.preventDefault(); }, {passive:false});
+
+/* souris : pan + molette douce */
+overlay.addEventListener('pointerdown', e=>{
+  dragging=true; sx=e.clientX; sy=e.clientY; px0=panX; py0=panY;
+});
+window.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  panX = px0 + (e.clientX - sx);
+  panY = py0 + (e.clientY - sy);
+  applyTransform();
+});
+window.addEventListener('pointerup', ()=> dragging=false);
+
+overlay.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const factor = (e.deltaY < 0) ? WHEEL_STEP : (1 / WHEEL_STEP);
+  zoomAtPoint(e.clientX, e.clientY, scale * factor);
+}, {passive:false});
+
+/* tactile : pinch en plusieurs fois sans reset */
+overlay.addEventListener('touchstart', e=>{
+  if (e.touches.length === 2){
+    const [a,b]=e.touches;
+    pinch = {
+      d0: Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY),
+      cx: (a.clientX + b.clientX)/2,
+      cy: (a.clientY + b.clientY)/2,
+      startScale: scale
+    };
+  }
+}, {passive:true});
+
+overlay.addEventListener('touchmove', e=>{
+  if (pinch && e.touches.length === 2){
+    e.preventDefault();
+    const [a,b]=e.touches;
+    const d  = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY) || pinch.d0;
+    const cx = (a.clientX + b.clientX)/2;
+    const cy = (a.clientY + b.clientY)/2;
+
+    const raw = d / (pinch.d0 || 1);
+    const gentle = Math.pow(raw, PINCH_POWER);         // adoucit
+    const target = clamp(pinch.startScale * gentle, ZOOM_MIN, ZOOM_MAX);
+
+    zoomAtPoint(cx, cy, target); // conserve le point de pincement
+  }
+}, {passive:false});
+
+overlay.addEventListener('touchend', ()=>{ pinch = null; }, {passive:true});
+
+/* ====== MATCHES PAR COURT (admin OU joueur) ====== */
+function normName(p){
+  if(!p || typeof p!=='object') return 'Joueur';
+  const n = (p.name||'').trim();
+  if(n) return n;
+  const fn=(p.firstname||'').trim(), ln=(p.lastname||'').trim();
+  return (fn || ln) ? `${fn} ${ln}`.trim() : 'Joueur';
+}
+function toIntList(arr){ 
+  return (arr||[]).map(x => (Number.isFinite(+x) && x!=='' ? parseInt(x,10) : x)); 
+}
+
+async function reloadMatches(){
+  selMatch.innerHTML = `<option value="">Chargement…</option>`;
+  const src   = sourceEl.value || 'admin';
+  const court = courtEl.value  || 'courtA';
+
+  try{
+    let list = [];
+
+    if (src === 'admin'){
+      // Endpoint existant (global) → on filtre par court ici
+      const r = await fetch('/api/historique', {credentials:'same-origin'});
+      let data = await r.text(); try{ data = JSON.parse(data); }catch{}
+      const arr = Array.isArray(data) ? data : (data?.matches||data?.list||data?.items||data?.data||[]);
+      list = (arr||[]).filter(m=>{
+        const ok = !!(m.finished || m.winner!==undefined || (m.playerA?.history?.length && m.playerB?.history?.length));
+        return ok && m.court === court;
+      });
+
+    } else {
+      // Joueur : endpoint par court
+      const r = await fetch(`/api/historique/joueurs/${court}`, {credentials:'same-origin'});
+      let arr = await r.json(); if(!Array.isArray(arr)) arr = [];
+      list = arr.map(m=>{
+        const A = m.playerA || m.joueurA || {};
+        const B = m.playerB || m.joueurB || {};
+        return {
+          court,
+          playerA: { name: normName(A), history: toIntList(A.history || A.sets || []) },
+          playerB: { name: normName(B), history: toIntList(B.history || B.sets || []) },
+          winner: m.winner,
+          finished: !!(m.finished || m.match_fini || m.matchFini),
+          round: m.round || m.stage || m.match_text,
+          match_text: m.match_text || m.round || m.stage,
+          end_time: m.end_time,
+          match_id: m.match_id
+        };
+      });
+      // Tri récents en premier si end_time présent
+      list.sort((a,b)=> String(b.end_time||'').localeCompare(String(a.end_time||'')));
+    }
+
+    if(!list.length){
+      selMatch.innerHTML = `<option value="">Aucun match trouvé pour ${court} (${src})</option>`;
+      return;
+    }
+
+    selMatch.innerHTML = `<option value="">Sélectionne un match…</option>` + list.map(m=>{
+      const a = normName(m.playerA);
+      const b = normName(m.playerB);
+      return `<option value="${encodeURIComponent(JSON.stringify(m))}">${a} vs ${b}</option>`;
+    }).join('');
+
+  }catch(e){
+    selMatch.innerHTML = `<option value="">Erreur de chargement</option>`;
+  }
+}
+
+function applyMatch(){
+  const v = selMatch.value; if(!v) return;
+  try{
+    const m = JSON.parse(decodeURIComponent(v));
+    document.getElementById('stageText').textContent = (m.match_text||m.round||m.stage||'MATCH TERMINÉ').toUpperCase();
+    const nameA = normName(m.playerA);
+    const nameB = normName(m.playerB);
+    document.getElementById('nameA').textContent = nameA;
+    document.getElementById('nameB').textContent = nameB;
+    const aBox = document.getElementById('setsA'), bBox = document.getElementById('setsB'); aBox.innerHTML=''; bBox.innerHTML='';
+    const A = m.playerA?.history||[], B = m.playerB?.history||[]; const L=Math.max(A.length,B.length);
+    for(let i=0;i<L;i++){
+      const a=A[i]??'', b=B[i]??'';
+      const eA=document.createElement('div'); eA.className='set'+((a!==''&&b!=='')&&a>b?' w':''); eA.textContent=a;
+      const eB=document.createElement('div'); eB.className='set'+((a!==''&&b!=='')&&b>a?' w':''); eB.textContent=b;
+      aBox.appendChild(eA); bBox.appendChild(eB);
+    }
+  }catch{}
+}
+
+courtEl.addEventListener('change', reloadMatches);
+sourceEl.addEventListener('change', reloadMatches);
+btnReload.addEventListener('click', reloadMatches);
+btnApply.addEventListener('click', applyMatch);
+
+/* ====== EXPORTS ====== */
+async function snapshotUIOnlyCanvas(){
+  const clone = overlay.cloneNode(true);
+  const bg = clone.querySelector('#bg-layer'); 
+  if (bg) bg.remove();
+
+  clone.style.setProperty('--u', '3');
+  clone.id = 'overlay-export';
+
+  const style = document.createElement('style');
+  style.textContent = `
+    #overlay-export .ribbon{ background:transparent !important; border:none !important; box-shadow:none !important; backdrop-filter:none !important; }
+    #overlay-export .event, #overlay-export .stage-text { display:none !important; }
+    #overlay-export .logo { height:130px !important; }
+    #overlay-export .logo-right { height:130px !important; }
+    #overlay-export .score{ padding:14px !important; }
+    #overlay-export .box{
+      background:#152540 !important; border:1px solid rgba(255,255,255,.16) !important;
+      border-radius:22px !important; padding:22px 24px !important;
+      box-shadow:none !important; backdrop-filter:none !important;
+    }
+    #overlay-export .set{
+      min-width:80px !important; padding:16px 20px !important;
+      font-size:46px !important; font-weight:900 !important;
+      background:#0e1a31 !important; border:1px solid #2a3a5e !important;
+      border-radius:14px !important; box-shadow:none !important; color:#fff !important;
+    }
+    #overlay-export .set.w{
+      background:#0e1a31 !important; color:#f7c331 !important;
+      border:2px solid #f7c331 !important; box-shadow:0 0 6px rgba(247,195,49,0.35) !important;
+    }
+  `;
+  clone.appendChild(style);
+
+  const rib = clone.querySelector('.ribbon');
+  if (rib && !clone.querySelector('.logo-right')) {
+    const right = document.createElement('img');
+    right.src = '/static/fft_comite_eureetloir.png';
+    right.alt = 'Comité Eure-et-Loir';
+    right.className = 'logo-right';
+    rib.appendChild(right);
+  }
+
+  clone.style.background = 'transparent';
+  clone.style.border = 'none';
+  clone.style.boxShadow = 'none';
+  clone.style.position='fixed';
+  clone.style.left='-10000px';
+  clone.style.top='-10000px';
+  clone.style.width = OUT_W+'px';
+  clone.style.height = OUT_H+'px';
+  clone.style.maxWidth = 'none';
+  clone.style.aspectRatio = '';
+
+  clone.querySelectorAll('*').forEach(el=>{
+    el.style.backdropFilter = 'none';
+    el.style.filter = (el.style.filter || '').replace(/blur\([^)]+\)/g,'');
+  });
+
+  document.body.appendChild(clone);
+  const canvas = await html2canvas(clone, { backgroundColor:null, scale:2.6 });
+  clone.remove();
+  return canvas;
+}
+
+function drawMedia(ctx, W, H){
+  if (!media) return;
+  const base = Math.min(W/mw, H/mh);
+  const s = base * scale;
+  const dw=mw*s, dh=mh*s;
+  const dx=(W-dw)/2 + panX*(W/overlay.clientWidth);
+  const dy=(H-dh)/2 + panY*(H/overlay.clientHeight);
+  ctx.drawImage(media, dx, dy, dw, dh);
+}
+function ensureReady(el){
+  return new Promise(res=>{
+    if (!el) return res();
+    if (el.tagName==='VIDEO'){ if (el.readyState>=2) return res(); el.addEventListener('loadeddata',()=>res(),{once:true}); }
+    else { if (el.complete) return res(); el.addEventListener('load',()=>res(),{once:true}); }
+  });
+}
+
+/* Image */
+btnImage.addEventListener('click', async ()=>{
+  setOutDims(2048,2560);
+  const canvas = document.createElement('canvas'); 
+  canvas.width = OUT_W; 
+  canvas.height = OUT_H;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true; 
+  ctx.imageSmoothingQuality = 'high';
+
+  if (media){ await ensureReady(media); drawMedia(ctx, OUT_W, OUT_H); }
+  const ui = await snapshotUIOnlyCanvas(); 
+  ctx.drawImage(ui, 0, 0, OUT_W, OUT_H);
+
+  canvas.toBlob(async blob=>{
+    if(!blob){ alert("Impossible de générer l'image."); return; }
+    const url = URL.createObjectURL(blob);
+    const filename = `visuel_${OUT_W}x${OUT_H}.png`;
+
+    try{
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files:[file] })) {
+        await navigator.share({ files:[file], title:'Visuel NTBA' });
+        URL.revokeObjectURL(url);
+        return;
+      }
+    }catch(e){}
+
+    let w = null;
+    try {
+      w = window.open(url, '_blank');
+      if (!w) {
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch(_) {}
+
+    downloadToFile(url, filename);
+    setTimeout(()=>URL.revokeObjectURL(url), 12000);
+  }, 'image/png');
+});
+
+/* Vidéo */
+btnVideo.addEventListener('click', async ()=>{
+  if (!media || media.tagName!=='VIDEO'){ alert('Ajoute une vidéo en fond.'); return; }
+  if (!('MediaRecorder' in window)) { alert("Votre navigateur ne permet pas l'enregistrement vidéo (MediaRecorder indisponible)."); return; }
+
+  const out = document.createElement('canvas'); 
+  out.width = OUT_W; 
+  out.height = OUT_H;
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true; 
+  ctx.imageSmoothingQuality = 'high';
+  const fps = 30;
+  const streamV = out.captureStream(fps);
+
+  const mimeCandidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const mime = mimeCandidates.find(t=>MediaRecorder.isTypeSupported?.(t)) || 'video/webm';
+  const rec = new MediaRecorder(streamV, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+
+  const chunks=[]; 
+  rec.ondataavailable=e=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+  const done = new Promise(res=> rec.onstop = ()=> res(new Blob(chunks,{type: mime.split(';')[0]})) );
+
+  const uiCanvas = await snapshotUIOnlyCanvas();
+  const uiImg = new Image(); 
+  uiImg.src = uiCanvas.toDataURL('image/png'); 
+  await uiImg.decode().catch(()=>{});
+
+  await ensureReady(media);
+  try{ media.pause(); media.currentTime=0; }catch{}
+  try{ await media.play(); }catch{}
+
+  rec.start(250);
+  const t0 = performance.now();
+  const maxS = Math.max(2, Math.min(Math.round(media.duration || 8), 180));
+
+  await new Promise(res=>{
+    function loop(){
+      const t=(performance.now()-t0)/1000;
+      ctx.clearRect(0,0,OUT_W,OUT_H);
+      drawMedia(ctx, OUT_W, OUT_H);
+      ctx.drawImage(uiImg, 0, 0, OUT_W, OUT_H);
+      if (t>=maxS || media.ended){ 
+        try{ media.pause(); }catch{} 
+        rec.stop(); 
+        return res(); 
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+
+  const blob = await done;
+  const url = URL.createObjectURL(blob);
+  downloadToFile(url, `video_overlay_${OUT_W}x${OUT_H}.${blob.type.includes('webm')?'webm':'mp4'}`);
+  setTimeout(()=>URL.revokeObjectURL(url), 8000);
+});
+
+/* ====== Init ====== */
+setOutDims(1080,1920);
+window.addEventListener('resize', applyTransform);
+reloadMatches();
+</script>
+</body>
+</html>
