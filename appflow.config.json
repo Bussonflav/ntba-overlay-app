@@ -1,8 +1,12 @@
 {
-  "appId": "7c818bda",
-  "name": "NTBA Overlay",
-  "root": ".",
-  "integrations": {
-    "capacitor": {}
-  }
+  "apps": [
+    {
+      "appId": "7c818bda",
+      "name": "NTBA Overlay",
+      "root": ".",
+      "integrations": {
+        "capacitor": {}
+      }
+    }
+  ]
 }
